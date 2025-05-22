@@ -1,0 +1,115 @@
+/* SQLi Scanner - Custom Styles */
+
+/* Card styling */
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+    font-weight: 500;
+}
+
+/* Progress bar styling */
+.progress {
+    height: 1rem;
+    border-radius: 0.5rem;
+}
+
+/* Form styling */
+.form-label {
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link {
+    border-radius: 0.5rem 0.5rem 0 0;
+    font-weight: 500;
+}
+
+.tab-content {
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+/* Tables */
+.table th {
+    background-color: rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+}
+
+/* Scan status styling */
+.status-container {
+    padding: 1rem;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 0.5rem;
+}
+
+/* Modal styling */
+.modal-content {
+    border-radius: 0.5rem;
+    border: none;
+}
+
+.modal-header {
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+/* Vulnerability result badges */
+.badge {
+    font-weight: 500;
+    padding: 0.4em 0.6em;
+}
+
+/* Icon spacing */
+i.fa, i.fas {
+    width: 1.25em;
+    text-align: center;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 768px) {
+    .card-header h3 {
+        font-size: 1.2rem;
+    }
+    
+    .modal-lg {
+        max-width: 95%;
+    }
+}
+
+/* Custom pre for code blocks */
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Improve focus outline for dark theme */
+.form-control:focus, .form-select:focus, .btn:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Improve dark mode input placeholders */
+.form-control::placeholder {
+    opacity: 0.5;
+}
+
+/* Animated elements */
+.fa-spin {
+    animation-duration: 1s;
+}
+
+/* SweetAlert2 dark theme compatibility */
+.swal2-popup {
+    background-color: var(--bs-dark) !important;
+    color: var(--bs-light) !important;
+}
+
+.swal2-title, .swal2-content {
+    color: var(--bs-light) !important;
+}
+
+.swal2-actions button {
+    box-shadow: none !important;
+}

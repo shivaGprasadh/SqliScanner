@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if scan %}Scan Results for {{ scan.target }}{% else %}All Scans{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if scan %}
+        <!-- Single Scan View -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h3 class="card-title mb-0">
+                            <i class="fas fa-search me-2"></i>Scan Details
+                        </h3>
+                        <div>
+                            <a href="{{ url_for('results_list') }}" class="btn btn-sm btn-outline-light">
+                                <i class="fas fa-list me-1"></i> All Scans
+                            </a>
+                            {% if scan.status in ['running', 'pending'] %}
+                                <button id="stopScanBtn" class="btn btn-sm btn-danger" data-scan-id="{{ scan.id }}">
+                                    <i class="fas fa-stop me-1"></i> Stop Scan
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5><i class="fas fa-info-circle me-2"></i>General Information</h5>
+                                <table class="table table-striped">
+                                    <tr>
+                                        <th>Target:</th>
+                                        <td>
+                                            <a href="{{ scan.target if scan.target.startswith('http') else 'http://' + scan.target }}" 
+                                               target="_blank" rel="noopener noreferrer">
+                                                {{ scan.target }}
+                                                <i class="fas fa-external-link-alt ms-1 small"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Type:</th>
+                                        <td>{{ scan.target_type|capitalize }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Started:</th>
+                                        <td>{{ scan.created_at.strftime('%Y-%m-%d %H:%M:%S') if scan.created_at else 'N/A' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Completed:</th>
+                                        <td>{{ scan.completed_at.strftime('%Y-%m-%d %H:%M:%S') if scan.completed_at else 'N/A' }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h5><i class="fas fa-cogs me-2"></i>Status</h5>
+                                <div class="status-container">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 id="statusText" class="mb-0">
+                                            {% if scan.status == 'pending' %}
+                                                <span class="badge bg-secondary">Pending</span>
+                                            {% elif scan.status == 'running' %}
+                                                <span class="badge bg-primary">Running</span>
+                                            {% elif scan.status == 'completed' %}
+                                                <span class="badge bg-success">Completed</span>
+                                            {% elif scan.status == 'failed' %}
+                                                <span class="badge bg-danger">Failed</span>
+                                            {% elif scan.status == 'stopped' %}
+                                                <span class="badge bg-warning">Stopped</span>
+                                            {% endif %}
+                                        </h6>
+                                        <span id="progressText">{{ scan.progress }}%</span>
+                                    </div>
+                                    <div class="progress mb-3">
+                                        <div id="progressBar" class="progress-bar 
+                                            {% if scan.status == 'running' %}progress-bar-striped progress-bar-animated{% endif %} 
+                                            {% if scan.status == 'completed' %}bg-success{% endif %}
+                                            {% if scan.status == 'failed' %}bg-danger{% endif %}
+                                            {% if scan.status == 'stopped' %}bg-warning{% endif %}"
+                                            role="progressbar" style="width: {{ scan.progress }}%" 
+                                            aria-valuenow="{{ scan.progress }}" aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <div id="currentStage" class="text-muted small">
+                                        {% if scan.current_stage %}
+                                            <i class="fas fa-spinner fa-spin me-1"></i> {{ scan.current_stage }}
+                                        {% else %}
+                                            {% if scan.status == 'pending' %}
+                                                <i class="fas fa-hourglass-start me-1"></i> Waiting to start...
+                                            {% elif scan.status == 'completed' %}
+                                                <i class="fas fa-check-circle me-1"></i> Scan completed.
+                                            {% elif scan.status == 'failed' %}
+                                                <i class="fas fa-times-circle me-1"></i> Scan failed.
+                                            {% elif scan.status == 'stopped' %}
+                                                <i class="fas fa-stop-circle me-1"></i> Scan stopped manually.
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- SQLMap Options -->
+                                <h5 class="mt-4"><i class="fas fa-wrench me-2"></i>SQLMap Options</h5>
+                                <div class="options-container">
+                                    <pre class="bg-dark text-light p-2 rounded small" style="max-height: 150px; overflow-y: auto;">{{ scan.options }}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="card-title mb-0">
+                            <i class="fas fa-bug me-2"></i>Vulnerabilities Found
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultsContainer">
+                            {% if scan.results %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>URL</th>
+                                                <th>Parameter</th>
+                                                <th>Type</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for result in scan.results %}
+                                                <tr>
+                                                    <td>
+                                                        <a href="{{ result.url }}" target="_blank" rel="noopener noreferrer">
+                                                            {{ result.url }}
+                                                            <i class="fas fa-external-link-alt ms-1 small"></i>
+                                                        </a>
+                                                    </td>
+                                                    <td>{{ result.parameter }}</td>
+                                                    <td><span class="badge bg-danger">{{ result.vulnerability_type }}</span></td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-info view-details-btn" 
+                                                                data-result-id="{{ result.id }}"
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#resultDetailsModal"
+                                                                data-url="{{ result.url }}"
+                                                                data-parameter="{{ result.parameter }}"
+                                                                data-payload="{{ result.payload }}"
+                                                                data-details="{{ result.details }}">
+                                                            <i class="fas fa-eye me-1"></i> Details
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% elif scan.status in ['completed', 'stopped'] %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i> No vulnerabilities found.
+                                </div>
+                            {% else %}
+                                <div class="alert alert-secondary">
+                                    <i class="fas fa-spinner fa-spin me-2"></i> Scan in progress. Results will appear here.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Result Details Modal -->
+        <div class="modal fade" id="resultDetailsModal" tabindex="-1" aria-labelledby="resultDetailsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="resultDetailsModalLabel">Vulnerability Details</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <h6>URL:</h6>
+                            <p id="modalUrl" class="text-break"></p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Parameter:</h6>
+                            <p id="modalParameter"></p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Payload:</h6>
+                            <pre id="modalPayload" class="bg-dark text-light p-2 rounded small"></pre>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Details:</h6>
+                            <pre id="modalDetails" class="bg-dark text-light p-2 rounded small" style="max-height: 300px; overflow-y: auto;"></pre>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- All Scans View -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h3 class="card-title mb-0">
+                            <i class="fas fa-history me-2"></i>Scan History
+                        </h3>
+                        <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-light">
+                            <i class="fas fa-plus me-1"></i> New Scan
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if scans %}
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Target</th>
+                                            <th>Type</th>
+                                            <th>Status</th>
+                                            <th>Started</th>
+                                            <th>Vulnerabilities</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for scan in scans %}
+                                            <tr>
+                                                <td>{{ scan.id }}</td>
+                                                <td>
+                                                    <a href="{{ scan.target if scan.target.startswith('http') else 'http://' + scan.target }}" 
+                                                       target="_blank" rel="noopener noreferrer">
+                                                        {{ scan.target }}
+                                                        <i class="fas fa-external-link-alt ms-1 small"></i>
+                                                    </a>
+                                                </td>
+                                                <td>{{ scan.target_type|capitalize }}</td>
+                                                <td>
+                                                    {% if scan.status == 'pending' %}
+                                                        <span class="badge bg-secondary">Pending</span>
+                                                    {% elif scan.status == 'running' %}
+                                                        <span class="badge bg-primary">Running</span>
+                                                    {% elif scan.status == 'completed' %}
+                                                        <span class="badge bg-success">Completed</span>
+                                                    {% elif scan.status == 'failed' %}
+                                                        <span class="badge bg-danger">Failed</span>
+                                                    {% elif scan.status == 'stopped' %}
+                                                        <span class="badge bg-warning">Stopped</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ scan.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                                <td>
+                                                    {% if scan.results|length > 0 %}
+                                                        <span class="badge bg-danger">{{ scan.results|length }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">0</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <a href="{{ url_for('results', scan_id=scan.id) }}" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-eye me-1"></i> View
+                                                    </a>
+                                                    {% if scan.status in ['running', 'pending'] %}
+                                                        <button class="btn btn-sm btn-danger stop-scan-btn" data-scan-id="{{ scan.id }}">
+                                                            <i class="fas fa-stop me-1"></i> Stop
+                                                        </button>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i> No scans found. Start a new scan to see results here.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    {% if scan and scan.status in ['running', 'pending'] %}
+        // Function to update scan status
+        function updateScanStatus() {
+            $.ajax({
+                url: "{{ url_for('scan_status', scan_id=scan.id) }}",
+                type: "GET",
+                dataType: "json",
+                success: function(data) {
+                    // Update status badge
+                    let statusHtml = '';
+                    if (data.status === 'pending') {
+                        statusHtml = '<span class="badge bg-secondary">Pending</span>';
+                    } else if (data.status === 'running') {
+                        statusHtml = '<span class="badge bg-primary">Running</span>';
+                    } else if (data.status === 'completed') {
+                        statusHtml = '<span class="badge bg-success">Completed</span>';
+                        // Reload page to show results
+                        window.location.reload();
+                    } else if (data.status === 'failed') {
+                        statusHtml = '<span class="badge bg-danger">Failed</span>';
+                        // Reload page to show error
+                        window.location.reload();
+                    } else if (data.status === 'stopped') {
+                        statusHtml = '<span class="badge bg-warning">Stopped</span>';
+                        // Reload page to show final state
+                        window.location.reload();
+                    }
+                    $('#statusText').html(statusHtml);
+                    
+                    // Update progress bar
+                    $('#progressBar').css('width', data.progress + '%');
+                    $('#progressBar').attr('aria-valuenow', data.progress);
+                    $('#progressText').text(data.progress + '%');
+                    
+                    // Update current stage text
+                    if (data.current_stage) {
+                        $('#currentStage').html('<i class="fas fa-spinner fa-spin me-1"></i> ' + data.current_stage);
+                    }
+                    
+                    // Continue polling if scan is still running
+                    if (data.status === 'running' || data.status === 'pending') {
+                        setTimeout(updateScanStatus, 2000);
+                    } else {
+                        // Show stop button if scan is not running anymore
+                        $('#stopScanBtn').hide();
+                    }
+                },
+                error: function() {
+                    // On error, retry after a delay
+                    setTimeout(updateScanStatus, 5000);
+                }
+            });
+        }
+        
+        // Start the polling
+        updateScanStatus();
+    {% endif %}
+    
+    // View details button click handler
+    $('.view-details-btn').click(function() {
+        const url = $(this).data('url');
+        const parameter = $(this).data('parameter');
+        const payload = $(this).data('payload');
+        const details = $(this).data('details');
+        
+        $('#modalUrl').text(url);
+        $('#modalParameter').text(parameter);
+        $('#modalPayload').text(payload || 'Not available');
+        $('#modalDetails').text(details || 'Not available');
+    });
+    
+    // Stop scan button handler
+    $('#stopScanBtn, .stop-scan-btn').click(function() {
+        const scanId = $(this).data('scan-id');
+        
+        Swal.fire({
+            title: 'Stop Scan?',
+            text: 'Are you sure you want to stop this scan?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, stop it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/api/stop_scan/${scanId}`,
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire(
+                                'Stopped!',
+                                'The scan has been stopped.',
+                                'success'
+                            ).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire(
+                                'Error!',
+                                response.message,
+                                'error'
+                            );
+                        }
+                    },
+                    error: function() {
+                        Swal.fire(
+                            'Error!',
+                            'Failed to stop the scan. Please try again.',
+                            'error'
+                        );
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
