@@ -2,46 +2,27 @@ import os
 import logging
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 from forms import ScanForm
 from utils.sqlmap_manager import SQLMapManager
+from database import db, configure_db
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-class Base(DeclarativeBase):
-    pass
-
-db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Configure the database, use PostgreSQL if available, or fallback to SQLite
-database_url = os.environ.get("DATABASE_URL")
-if database_url and database_url.startswith("postgres://"):
-    # Heroku-style PostgreSQL URL needs to be updated for SQLAlchemy 1.4+
-    database_url = database_url.replace("postgres://", "postgresql://")
-    
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///sqliscanner.db"
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-}
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# Initialize the app with the extension
-db.init_app(app)
+# Configure the database
+configure_db(app)
 
 # Initialize SQLMap manager
 sqlmap_manager = SQLMapManager()
 
-# Import models after db initialization to avoid circular imports
+# Import models after app creation to avoid circular imports
 from models import Scan, ScanResult
 
 with app.app_context():

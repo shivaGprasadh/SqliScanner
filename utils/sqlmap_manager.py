@@ -23,7 +23,9 @@ class SQLMapManager:
         self.active_scans = {}  # Maps scan_id to process object
         self.scan_threads = {}  # Maps scan_id to thread object
         self.output_dir = tempfile.mkdtemp(prefix="sqlmap_results_")
-        self.sqlmap_path = "/nix/store/k8y38mbfvg8sjmsxcv1qh7dr1z4k1lk5-python3.11-sqlmap-1.8.5/bin/sqlmap"
+        
+        # Try to find sqlmap in PATH first, then fall back to specific locations
+        self.sqlmap_path = os.environ.get('SQLMAP_PATH', 'sqlmap')
         
         # Ensure SQLMap is installed
         try:
